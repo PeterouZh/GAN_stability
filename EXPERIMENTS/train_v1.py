@@ -19,7 +19,7 @@ from gan_training.config import (
 
 from trainer import trainer_dict
 
-from template_lib.utils import modelarts_utils
+from template_lib.utils import modelarts_utils, gpu_usage
 
 # Arguments
 # parser = argparse.ArgumentParser(
@@ -168,6 +168,7 @@ def main(args, myargs):
     gan_type=config.training.gan_type,
     reg_type=config.training.reg_type,
     reg_param=config.training.reg_param,
+    args=args,
     myargs=myargs
   )
 
@@ -190,6 +191,10 @@ def main(args, myargs):
       g_scheduler.step()
       d_scheduler.step()
 
+      if it % 50 == 0:
+        gpu_memory_map = gpu_usage.get_gpu_memory_map()
+        pbar.write(gpu_memory_map, file=myargs.stdout)
+
       d_lr = d_optimizer.param_groups[0]['lr']
       g_lr = g_optimizer.param_groups[0]['lr']
       logger.add('learning_rates', 'discriminator', d_lr, it=it)
@@ -201,7 +206,7 @@ def main(args, myargs):
       # Discriminator updates
       z = zdist.sample((batch_size,))
       dloss, reg, wd, dloss_real, dloss_fake = \
-        trainer.discriminator_trainstep(x_real, y, z)
+        trainer.discriminator_trainstep(x_real, y, z, it)
       logger.add('losses', 'discriminator_loss', dloss, it=it)
       logger.add('losses', 'gp', reg, it=it)
       logger.add('losses', 'wd', wd, it=it)

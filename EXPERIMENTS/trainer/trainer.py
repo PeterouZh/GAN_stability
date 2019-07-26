@@ -10,7 +10,7 @@ from template_lib.gans import inception_utils
 
 class Trainer(object):
   def __init__(self, generator, discriminator, g_optimizer, d_optimizer,
-               gan_type, reg_type, reg_param, myargs):
+               gan_type, reg_type, reg_param, args, myargs):
     self.generator = generator
     self.discriminator = discriminator
     self.g_optimizer = g_optimizer
@@ -20,7 +20,9 @@ class Trainer(object):
     self.reg_type = reg_type
     self.reg_param = reg_param
 
+    self.args = args
     self.myargs = myargs
+    self.config = myargs.config
 
     # load inception network
     self.inception_metrics = self.inception_metrics_func_create()
@@ -43,7 +45,7 @@ class Trainer(object):
 
     return gloss.item(), gloss_fake.item()
 
-  def discriminator_trainstep(self, x_real, y, z):
+  def discriminator_trainstep(self, x_real, y, z, it=0):
     toggle_grad(self.generator, False)
     toggle_grad(self.discriminator, True)
     self.generator.train()
@@ -72,16 +74,22 @@ class Trainer(object):
       reg = self.reg_param * compute_grad2(
         d_fake, x_fake, lambda_gp=self.reg_param, backward=True)
     elif self.reg_type == 'wgangp':
-      assert 0
-      reg = self.reg_param * self.wgan_gp_reg(x_real, x_fake, y)
-      reg.backward()
+      reg = self.wgan_gp_reg(
+        x_real, x_fake, y, lambda_gp=self.reg_param, backward=True)
     elif self.reg_type == 'wgangp0':
       assert 0
       reg = self.reg_param * self.wgan_gp_reg(x_real, x_fake, y, center=0.)
       reg.backward()
 
     wd = dloss_real - dloss_fake
-    dloss = -wd
+
+    if self.args.command in ['celebaHQ1024_wbgan_gpreal',
+                             'celebaHQ1024_wbgan_gp']:
+      dloss = -wd + torch.relu(wd - float(self.config.training.bound))
+      self.myargs.writer.add_scalar(
+        'losses/bound', self.config.training.bound, it)
+    else:
+      dloss = -wd
     dloss.backward()
     self.d_optimizer.step()
 
@@ -105,7 +113,8 @@ class Trainer(object):
 
     return loss
 
-  def wgan_gp_reg(self, x_real, x_fake, y, center=1.):
+  def wgan_gp_reg(self, x_real, x_fake, y, center=1.,
+                  lambda_gp=10., backward=False):
     batch_size = y.size(0)
     eps = torch.rand(batch_size, device=y.device).view(batch_size, 1, 1, 1)
     x_interp = (1 - eps) * x_real + eps * x_fake
@@ -113,8 +122,18 @@ class Trainer(object):
     x_interp.requires_grad_()
     d_out = self.discriminator(x_interp, y)
 
-    reg = (compute_grad2(d_out, x_interp).sqrt() - center).pow(2).mean()
+    grad_dout = autograd.grad(
+      outputs=d_out.sum(), inputs=x_interp,
+      create_graph=True, retain_graph=True, only_inputs=True
+    )[0]
+    grad_dout2 = grad_dout.pow(2)
+    grad_norm = grad_dout2.view(batch_size, -1).sum(1)
 
+    reg = (grad_norm.sqrt() - center).pow(2).mean()
+
+    if backward:
+      reg = lambda_gp * reg
+      reg.backward()
     return reg
 
   def inception_metrics_func_create(self):
