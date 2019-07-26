@@ -1,3 +1,4 @@
+import os
 import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
@@ -13,7 +14,7 @@ def get_dataset(name, data_dir, size=64, lsun_categories=None):
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         transforms.Lambda(lambda x: x + 1./128 * torch.rand(x.size())),
     ])
-
+    data_dir = os.path.expanduser(data_dir)
     if name == 'image':
         dataset = datasets.ImageFolder(data_dir, transform)
         nlabels = len(dataset.classes)

@@ -5,7 +5,8 @@ import torchvision
 
 class Logger(object):
     def __init__(self, log_dir='./logs', img_dir='./imgs',
-                 monitoring=None, monitoring_dir=None):
+                 monitoring=None, monitoring_dir=None,
+                 writer=None):
         self.stats = dict()
         self.log_dir = log_dir
         self.img_dir = img_dir
@@ -17,12 +18,12 @@ class Logger(object):
             os.makedirs(img_dir)
 
         if not (monitoring is None or monitoring == 'none'):
-            self.setup_monitoring(monitoring, monitoring_dir)
+            self.setup_monitoring(monitoring, monitoring_dir, writer)
         else:
             self.monitoring = None
             self.monitoring_dir = None
 
-    def setup_monitoring(self, monitoring, monitoring_dir=None):
+    def setup_monitoring(self, monitoring, monitoring_dir=None, writer=None):
         self.monitoring = monitoring
         self.monitoring_dir = monitoring_dir
 
@@ -32,8 +33,11 @@ class Logger(object):
             if self.tm.get_status() == 0:
                 print('Telemetry successfully connected.')
         elif monitoring == 'tensorboard':
-            import tensorboardX
-            self.tb = tensorboardX.SummaryWriter(monitoring_dir)
+            if writer:
+                self.tb = writer
+            else:
+                import tensorboardX
+                self.tb = tensorboardX.SummaryWriter(monitoring_dir)
         else:
             raise NotImplementedError('Monitoring tool "%s" not supported!'
                                       % monitoring)
