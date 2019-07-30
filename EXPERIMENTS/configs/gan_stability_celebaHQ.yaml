@@ -5,6 +5,7 @@ celebaHQ1024_wgan_gpreal:
     train_dir: ~/.keras/celeba1024
     test_dir: data/celebA-HQ
     img_size: 1024
+    load_in_mem: false
   generator:
     name: resnet
     kwargs:
@@ -23,15 +24,16 @@ celebaHQ1024_wgan_gpreal:
   training:
     out_dir: output/celebAHQ
     batch_size: 24
-#    batch_size: 72
+#    batch_size: 32
     nworkers: 12
 #    nworkers: 16
     gan_type: 'wgan'
     reg_type: 'real'
+    use_bound: false
+    gen_back: true
     take_model_average: false
     optimizer: 'adam'
-    sample_every: 200
-    bound: 100
+    sample_every: 2000
   fid_metric:
     saved_inception_moments: '~/.keras/BigGAN-PyTorch-1/CelebaHQ1024_inception_moments.npz'
     num_inception_images: 30000
@@ -53,6 +55,7 @@ celebaHQ1024_wbgan_gpreal:
     train_dir: ~/.keras/celeba1024
     test_dir: data/celebA-HQ
     img_size: 1024
+    load_in_mem: false
   generator:
     name: resnet
     kwargs:
@@ -70,16 +73,19 @@ celebaHQ1024_wbgan_gpreal:
     dim: 256
   training:
     out_dir: output/celebAHQ
-    batch_size: 24
-#    batch_size: 72
-    nworkers: 12
+    batch_size: 12
+#    batch_size: 32
+    nworkers: 1
 #    nworkers: 16
     gan_type: 'wgan'
     reg_type: 'real'
+    use_bound: true
+    bound: 100
+    gen_back: true
     take_model_average: false
     optimizer: 'adam'
-    sample_every: 200
-    bound: 100
+    sample_every: 2000
+
   fid_metric:
     saved_inception_moments: '~/.keras/BigGAN-PyTorch-1/CelebaHQ1024_inception_moments.npz'
     num_inception_images: 30000

@@ -69,8 +69,8 @@ class Logger(object):
         imgs = torchvision.utils.make_grid(imgs)
         torchvision.utils.save_image(imgs, outfile, nrow=8)
 
-        if self.monitoring == 'tensorboard':
-            self.tb.add_image(class_name, imgs, it)
+        # if self.monitoring == 'tensorboard':
+        #     self.tb.add_image(class_name, imgs, it)
 
     def get_last(self, category, k, default=0.):
         if category not in self.stats:

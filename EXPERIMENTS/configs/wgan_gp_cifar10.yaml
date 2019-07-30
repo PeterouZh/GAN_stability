@@ -1,0 +1,60 @@
+cifar10_inception_moments:
+  name: cifar10
+  train_dir: ~/.keras/cifar10
+  batch_size: 256
+  num_workers: 6
+  inception_moments:
+    parallel: false
+    saved_inception_moments: '~/.keras/cifar10/cifar10_inception_moments.npz'
+
+
+cifar10_wbgan_gpreal:
+  epoch: 200
+  data:
+#    type: hdf5
+    type: cifar10
+    train_dir: '~/.keras/cifar10'
+    nlabels: 10
+    test_dir: data/celebA-HQ
+    img_size: 32
+    load_in_mem: false
+  generator:
+    name: resnet_bn
+    kwargs:
+      nfilter: 16
+      nfilter_max: 256
+      embed_size: 1
+  discriminator:
+    name: resnet_bn
+    kwargs:
+      nfilter: 16
+      nfilter_max: 256
+      embed_size: 1
+  z_dist:
+    type: gauss
+    dim: 128
+  training:
+    gpu_every: 2000
+    out_dir: output/celebAHQ
+    batch_size: 32
+#    batch_size: 72
+    nworkers: 2
+#    nworkers: 16
+    gan_type: 'wgan'
+    reg_type: 'real'
+    take_model_average: false
+    optimizer: 'adam'
+    sample_every: 2000
+    bound: 2
+  fid_metric:
+    saved_inception_moments: '~/.keras/cifar10/cifar10_inception_moments.npz'
+    num_inception_images: 50000
+    batch_size: 256
+#    batch_size: 72
+  test:
+    batch_size: 4
+    sample_size: 6
+    sample_nrow: 3
+  interpolations:
+    nzs: 10
+    nsubsteps: 75

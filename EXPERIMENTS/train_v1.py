@@ -1,3 +1,4 @@
+import torchvision
 import tqdm
 import os
 from os import path
@@ -66,13 +67,14 @@ def main(args, myargs):
     name=config['data']['type'],
     data_dir=config['data']['train_dir'],
     size=config['data']['img_size'],
-    lsun_categories=config['data']['lsun_categories_train']
+    lsun_categories=config['data']['lsun_categories_train'],
+    load_in_mem=config.data.load_in_mem
   )
   train_loader = torch.utils.data.DataLoader(
     train_dataset,
     batch_size=batch_size,
     num_workers=config.training.nworkers,
-    shuffle=True, pin_memory=True, sampler=None, drop_last=True
+    shuffle=True, pin_memory=False, sampler=None, drop_last=True
   )
 
   # Number of labels
@@ -127,6 +129,9 @@ def main(args, myargs):
   ytest.clamp_(None, nlabels - 1)
   ztest = zdist.sample((ntest,))
   utils.save_images(x_real, path.join(out_dir, 'real.png'))
+  merged_img = torchvision.utils.make_grid(x_real, normalize=True,
+                                           pad_value=1, nrow=2)
+  myargs.writer.add_images('imgs', merged_img.view(1, *merged_img.shape), 0)
 
   # Test generator
   if config['training']['take_model_average']:
@@ -186,12 +191,13 @@ def main(args, myargs):
                                              join=True)
       break
     pbar = tqdm.tqdm(train_loader, file=myargs.stdout)
+    gpu_every = config.training.get('gpu_every', 1000)
     for x_real, y in pbar:
       it += 1
       g_scheduler.step()
       d_scheduler.step()
 
-      if it % 50 == 0:
+      if it % gpu_every == 0:
         gpu_memory_map = gpu_usage.get_gpu_memory_map()
         pbar.write(gpu_memory_map, file=myargs.stdout)
 
@@ -205,16 +211,14 @@ def main(args, myargs):
 
       # Discriminator updates
       z = zdist.sample((batch_size,))
-      dloss, reg, wd, dloss_real, dloss_fake = \
+      dloss, reg, wd = \
         trainer.discriminator_trainstep(x_real, y, z, it)
       logger.add('losses', 'discriminator_loss', dloss, it=it)
       logger.add('losses', 'gp', reg, it=it)
       logger.add('losses', 'wd', wd, it=it)
-      logger.add('losses', 'dloss_real', dloss_real, it=it)
-      logger.add('losses', 'dloss_fake', dloss_fake, it=it)
 
       # Generators updates
-      if ((it + 1) % d_steps) == 0:
+      if ((it + 1) % d_steps) == 0 and (not config.training.gen_back):
         z = zdist.sample((batch_size,))
         gloss, gloss_fake = trainer.generator_trainstep(y, z)
         logger.add('losses', 'generator_loss', gloss, it=it)

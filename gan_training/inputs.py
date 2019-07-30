@@ -5,7 +5,7 @@ import torchvision.datasets as datasets
 import numpy as np
 
 
-def get_dataset(name, data_dir, size=64, lsun_categories=None):
+def get_dataset(name, data_dir, size=64, lsun_categories=None, load_in_mem=False):
     transform = transforms.Compose([
         transforms.Resize(size),
         transforms.CenterCrop(size),
@@ -18,11 +18,26 @@ def get_dataset(name, data_dir, size=64, lsun_categories=None):
     if name == 'image':
         dataset = datasets.ImageFolder(data_dir, transform)
         nlabels = len(dataset.classes)
+    elif name == 'hdf5':
+        from TOOLS.make_hdf5 import Dataset_HDF5
+        transform = transforms.Compose([
+            transforms.Lambda(lambda x: x.transpose(1, 2, 0)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.Lambda(lambda x: x + 1. / 128 * torch.rand(x.size())),
+        ])
+        dataset = Dataset_HDF5(root=data_dir, transform=transform,
+                               load_in_mem=load_in_mem)
+        nlabels = len(dataset.classes)
     elif name == 'npy':
         # Only support normalization for now
         dataset = datasets.DatasetFolder(data_dir, npy_loader, ['npy'])
         nlabels = len(dataset.classes)
     elif name == 'cifar10':
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
         dataset = datasets.CIFAR10(root=data_dir, train=True, download=True,
                                    transform=transform)
         nlabels = 10

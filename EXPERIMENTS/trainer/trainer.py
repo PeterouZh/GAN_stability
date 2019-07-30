@@ -46,7 +46,7 @@ class Trainer(object):
     return gloss.item(), gloss_fake.item()
 
   def discriminator_trainstep(self, x_real, y, z, it=0):
-    toggle_grad(self.generator, False)
+    toggle_grad(self.generator, True)
     toggle_grad(self.discriminator, True)
     self.generator.train()
     self.discriminator.train()
@@ -59,11 +59,12 @@ class Trainer(object):
     dloss_real = d_real.mean()
 
     # On fake data
-    with torch.no_grad():
-      x_fake = self.generator(z, y)
+    # with torch.no_grad():
+    #   x_fake = self.generator(z, y)
+    x_fake = self.generator(z, y)
 
-    x_fake.requires_grad_()
-    d_fake = self.discriminator(x_fake, y)
+    # x_fake.requires_grad_()
+    d_fake = self.discriminator(x_fake.detach(), y)
     dloss_fake = d_fake.mean()
 
     if self.reg_type == 'real' or self.reg_type == 'real_fake':
@@ -83,8 +84,7 @@ class Trainer(object):
 
     wd = dloss_real - dloss_fake
 
-    if self.args.command in ['celebaHQ1024_wbgan_gpreal',
-                             'celebaHQ1024_wbgan_gp']:
+    if self.config.training.use_bound:
       dloss = -wd + torch.relu(wd - float(self.config.training.bound))
       self.myargs.writer.add_scalar(
         'losses/bound', self.config.training.bound, it)
@@ -95,11 +95,28 @@ class Trainer(object):
 
     toggle_grad(self.discriminator, False)
 
+    if self.config.training.gen_back:
+      toggle_grad(self.generator, True)
+      toggle_grad(self.discriminator, False)
+      self.g_optimizer.zero_grad()
+
+      d_fake_g = self.discriminator(x_fake, y)
+      dloss_fake_g = d_fake_g.mean()
+      gloss = -dloss_fake_g
+      gloss.backward()
+
+      self.g_optimizer.step()
+      self.myargs.writer.add_scalar('losses/generator_loss', gloss.item(), it)
+      d_loss_mean = dict(dloss_real=dloss_real.item(),
+                         dloss_fake=dloss_fake.item(),
+                         dloss_fake_g=dloss_fake_g.item())
+      self.myargs.writer.add_scalars('d_loss_mean', d_loss_mean, it)
+
+
     if self.reg_type == 'none':
       reg = torch.tensor(0.)
 
-    return (dloss.item(), reg.item(), wd.item(),
-            dloss_real.item(), dloss_fake.item())
+    return (dloss.item(), reg.item(), wd.item())
 
   def compute_loss(self, d_out, target):
     targets = d_out.new_full(size=d_out.size(), fill_value=target)
