@@ -23,7 +23,7 @@ celebaHQ1024_wgan_gpreal:
     dim: 256
   training:
     out_dir: output/celebAHQ
-    batch_size: 24
+    batch_size: 12
 #    batch_size: 32
     nworkers: 12
 #    nworkers: 16
